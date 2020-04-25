@@ -25,6 +25,8 @@ package com.jcraft.jcterm;
 import com.jcraft.jsch.*;
 
 import java.io.*;
+import java.net.Socket;
+import java.net.UnknownHostException;
 
 import javax.microedition.midlet.*;
 import javax.microedition.io.*;
@@ -67,9 +69,9 @@ public class JCTermMIDP extends MIDlet implements Runnable, CommandListener {
 	private OutputStream out;
 	private InputStream in;
 
-	//private Image background;
-	//private Graphics cursor_graphics;
-	//private int compression=0;
+	// private Image background;
+	// private Graphics cursor_graphics;
+	// private int compression=0;
 
 	public JCTermMIDP() {
 		display = Display.getDisplay(this);
@@ -246,7 +248,7 @@ public class JCTermMIDP extends MIDlet implements Runnable, CommandListener {
 	}
 
 	public void commandAction(Command c, Displayable s) {
-		//System.out.println("key: "+c+" "+s);
+		// System.out.println("key: "+c+" "+s);
 		if (c == clearKeyCommand) {
 			clearKey();
 			return;
@@ -260,7 +262,7 @@ public class JCTermMIDP extends MIDlet implements Runnable, CommandListener {
 			return;
 		}
 		if (s == tb) {
-			//     System.out.println(tb.getString());
+			// System.out.println(tb.getString());
 			byte[] foo = tb.getString().getBytes();
 			try {
 				out.write(foo, 0, foo.length);
@@ -331,9 +333,9 @@ public class JCTermMIDP extends MIDlet implements Runnable, CommandListener {
 		canvas.addCommand(inputCommand);
 		canvas.setCommandListener(this);
 
-		//    cursor_graphics=(img.getGraphics());
-		//    cursor_graphics.setColor(getForeGround());
-		//    cursor_graphics.setXORMode(getBackGround());
+		// cursor_graphics=(img.getGraphics());
+		// cursor_graphics.setColor(getForeGround());
+		// cursor_graphics.setXORMode(getBackGround());
 	}
 
 	public void kick() {
@@ -344,22 +346,22 @@ public class JCTermMIDP extends MIDlet implements Runnable, CommandListener {
 	MyUserInfo ui = null;
 	private Emulator emulator = null;
 
-	//  public void setLineSpace(int foo){this.line_space=foo;}
-	//  public void setCompression(int compression){
-	//    if(compression<0 || 9<compression) return;
-	//    this.compression=compression;
-	//  }
-	//  public int getCompression(){return compression;}
-	//  public void setUserHost(String userhost){
-	//    try{
-	//      String _user=userhost.substring(0, userhost.indexOf('@'));
-	//      String _host=userhost.substring(userhost.indexOf('@')+1);
-	//      this.user=_user;
-	//      this.host=_host;
-	//    }
-	//    catch(Exception e){
-	//    }
-	//  }
+	// public void setLineSpace(int foo){this.line_space=foo;}
+	// public void setCompression(int compression){
+	// if(compression<0 || 9<compression) return;
+	// this.compression=compression;
+	// }
+	// public int getCompression(){return compression;}
+	// public void setUserHost(String userhost){
+	// try{
+	// String _user=userhost.substring(0, userhost.indexOf('@'));
+	// String _host=userhost.substring(userhost.indexOf('@')+1);
+	// this.user=_user;
+	// this.host=_host;
+	// }
+	// catch(Exception e){
+	// }
+	// }
 
 	public void openSession() {
 		kick();
@@ -494,7 +496,7 @@ public class JCTermMIDP extends MIDlet implements Runnable, CommandListener {
 				for (int i = 1; i < num + 1; i++) {
 					byte foo[] = store.getRecord(i);
 					// System.out.println("foo.length: "+foo.length);
-					jsch.addIdentity(new IdentityMem(new String(foo), "", jsch));
+					jsch.addIdentity(new IdentityMem(new String(foo), "", jsch).toString());
 					num--;
 				}
 				store.closeRecordStore();
@@ -528,17 +530,17 @@ public class JCTermMIDP extends MIDlet implements Runnable, CommandListener {
 	}
 
 	class MySocketFactory implements SocketFactory {
-		public Object createSocket(String host, int port) throws IOException {
-			return Connector.open("socket://" + host + ":" + port);
+		public Socket createSocket(String arg0, int arg1) throws IOException, UnknownHostException {
+			return (Socket) Connector.open("socket://" + host + ":" + port);
 		}
 
-		public InputStream getInputStream(Object socket) throws IOException {
-			SocketConnection foo = (SocketConnection) socket;
+		public InputStream getInputStream(Socket arg0) throws IOException {
+			SocketConnection foo = (SocketConnection) arg0;
 			return foo.openInputStream();
 		}
 
-		public OutputStream getOutputStream(Object socket) throws IOException {
-			SocketConnection foo = (SocketConnection) socket;
+		public OutputStream getOutputStream(Socket arg0) throws IOException {
+			SocketConnection foo = (SocketConnection) arg0;
 			return foo.openOutputStream();
 		}
 	}
@@ -559,6 +561,7 @@ public class JCTermMIDP extends MIDlet implements Runnable, CommandListener {
 		private int defaultfground = 0xffffff;
 		private int bground = 0x000000;
 		private int fground = 0xffffff;
+		private boolean reverse = false;
 
 		private int x = 0;
 		private int y = 0;
@@ -720,69 +723,69 @@ public class JCTermMIDP extends MIDlet implements Runnable, CommandListener {
 				}
 			}
 		}
-	}
 
-	public void start(Connection connection) {
-	}
-
-	public void setDefaultForeGround(Object f) {
-		if (f instanceof Integer) {
-			defaultfground = ((Integer) f).intValue();
+		public void start(Connection connection) {
 		}
-	}
 
-	public void setDefaultBackGround(Object b) {
-		if (b instanceof Integer) {
-			defaultbground = ((Integer) b).intValue();
+		public void setDefaultForeGround(Object f) {
+			if (f instanceof Integer) {
+				defaultfground = ((Integer) f).intValue();
+			}
 		}
-	}
 
-	public void setForeGround(Object f) {
-		if (f instanceof Integer) {
-			fground = ((Integer) f).intValue();
-			graphics.setColor(fground);
+		public void setDefaultBackGround(Object b) {
+			if (b instanceof Integer) {
+				defaultbground = ((Integer) b).intValue();
+			}
 		}
-	}
 
-	public void setBackGround(Object b) {
-		if (b instanceof Integer) {
-			bground = ((Integer) b).intValue();
+		public void setForeGround(Object f) {
+			if (f instanceof Integer) {
+				fground = ((Integer) f).intValue();
+				graphics.setColor(fground);
+			}
 		}
-	}
 
-	private int getForeGround() {
-		if (reverse)
-			return bground;
-		return fground;
-	}
+		public void setBackGround(Object b) {
+			if (b instanceof Integer) {
+				bground = ((Integer) b).intValue();
+			}
+		}
 
-	private int getBackGround() {
-		if (reverse)
+		private int getForeGround() {
+			if (reverse)
+				return bground;
 			return fground;
-		return bground;
-	}
+		}
 
-	public void setBold() {
-	}
+		private int getBackGround() {
+			if (reverse)
+				return fground;
+			return bground;
+		}
 
-	public void setUnderline() {
-	}
+		public void setBold() {
+		}
 
-	public void setReverse() {
-		reverse = true;
-		if (graphics != null)
-			graphics.setColor(getForeGround());
-	}
+		public void setUnderline() {
+		}
 
-	public void resetAllAttributes() {
-		reverse = false;
-		bground = defaultbground;
-		fground = defaultfground;
-		if (graphics != null)
-			graphics.setColor(getForeGround());
-	}
+		public void setReverse() {
+			reverse = true;
+			if (graphics != null)
+				graphics.setColor(getForeGround());
+		}
 
-	public Object getColor(int index) {
-		return null;
+		public void resetAllAttributes() {
+			reverse = false;
+			bground = defaultbground;
+			fground = defaultfground;
+			if (graphics != null)
+				graphics.setColor(getForeGround());
+		}
+
+		public Object getColor(int index) {
+			return null;
+		}
 	}
 }
