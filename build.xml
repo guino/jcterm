@@ -3,7 +3,7 @@
     </description>
 
   <!-- set global properties for this build -->
-  <property name="version" value="0.0.11"/>
+  <property name="version" value="0.1.0"/>
   <property name="src" location="src/main/java/"/>
   <property name="build" location="build"/>
   <property name="dist"  location="dist"/>
@@ -47,9 +47,12 @@
 
     <mkdir dir="${dist}/lib"/>
 
-    <jar jarfile="${dist}/lib/${jcterm.jar}"
-         includes="com/jcraft/jcterm/*.class"
-         basedir="${build}"/>
+    <jar jarfile="${dist}/lib/${jcterm.jar}" includes="com/jcraft/jcterm/*.class" basedir="${build}">
+      <zipgroupfileset dir="lib" includes="jsch-0.1.54.jar" />
+      <manifest>
+        <attribute name="Main-Class" value="com.jcraft.jcterm.JCTermSwingFrame"/>
+      </manifest>
+    </jar>
 
   </target>
 

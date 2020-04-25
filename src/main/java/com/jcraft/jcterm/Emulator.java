@@ -1,9 +1,8 @@
-/* -*-mode:java; c-basic-offset:2; -*- */
 /* JCTerm
  * Copyright (C) 2002,2007 ymnk, JCraft,Inc.
  *
- * Written by: ymnk<ymnk@jcaft.com>
- *
+ * Written by: ymnk <ymnk@jcaft.com>
+ * Modified by: Guino <wbbo@hotmail.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public License
@@ -19,19 +18,15 @@
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-
 package com.jcraft.jcterm;
 
-import java.io.InputStream;
 import java.io.IOException;
 
 public abstract class Emulator {
 	Term term = null;
-	InputStream in = null;
 
-	public Emulator(Term term, InputStream in) {
+	public Emulator(Term term) {
 		this.term = term;
-		this.in = in;
 	}
 
 	public abstract void start();
@@ -41,6 +36,16 @@ public abstract class Emulator {
 	public abstract byte[] getCodeUP();
 
 	public abstract byte[] getCodeDOWN();
+
+	public abstract byte[] getCodePGUP();
+
+	public abstract byte[] getCodePGDOWN();
+
+	public abstract byte[] getCodeHOME();
+
+	public abstract byte[] getCodeEND();
+
+	public abstract byte[] getCodeDEL();
 
 	public abstract byte[] getCodeRIGHT();
 
@@ -86,22 +91,25 @@ public abstract class Emulator {
 			fillBuf();
 		}
 		buflen--;
-
-		// System.out.println("getChar: "+new
-		// Character((char)buf[bufs])+"["+Integer.toHexString(buf[bufs]&0xff)+"]");
-
 		return buf[bufs++];
 	}
 
 	void fillBuf() throws java.io.IOException {
 		buflen = bufs = 0;
-		buflen = in.read(buf, bufs, buf.length - bufs);
-		/*
-		 * System.out.println("fillBuf: "); for(int i=0; i<buflen; i++){ byte b=buf[i];
-		 * System.out.print(new
-		 * Character((char)b)+"["+Integer.toHexString(b&0xff)+"], "); }
-		 * System.out.println("");
-		 */
+		buflen = term.getConnection().getInputStream().read(buf, bufs, buf.length - bufs);
+
+//		System.out.print("fillBuf: ");
+//		for(int i=0; i<buflen; i++) {
+//			if((buf[i]&0xff)==0xd) {
+//				System.out.print("\\d[d]");
+//			} else if((buf[i]&0xff)==0xa) {
+//				System.out.print("\\a[a]");
+//			} else {
+//				System.out.print(((char)(buf[i]&0xff))+"["+Integer.toHexString(buf[i]&0xff)+"]");
+//			}
+//		}
+//		System.out.println("");
+
 		if (buflen <= 0) {
 			buflen = 0;
 			throw new IOException("fillBuf");
@@ -109,14 +117,11 @@ public abstract class Emulator {
 	}
 
 	void pushChar(byte foo) throws java.io.IOException {
-		// System.out.println("pushChar: "+new
-		// Character((char)foo)+"["+Integer.toHexString(foo&0xff)+"]");
 		buflen++;
 		buf[--bufs] = foo;
 	}
 
 	int getASCII(int len) throws java.io.IOException {
-		// System.out.println("bufs="+bufs+", buflen="+buflen+", len="+len);
 		if (buflen == 0) {
 			fillBuf();
 		}
@@ -134,7 +139,6 @@ public abstract class Emulator {
 			bufs--;
 			break;
 		}
-		// System.out.println(" return "+(foo-len));
 		return foo - len;
 	}
 
@@ -143,6 +147,10 @@ public abstract class Emulator {
 
 	protected int x = 0;
 	protected int y = 0;
+	private int saved_x = 0;
+	private int saved_y = 0;
+	private int altsaved_x = 0;
+	private int altsaved_y = 0;
 
 	protected int char_width;
 	protected int char_height;
@@ -152,58 +160,119 @@ public abstract class Emulator {
 
 	protected int tab = 8;
 
-	// Reverse scroll
+	// Insert lines at cursor position
+	protected void insert_lines(int lines) {
+		if(lines==0)
+			lines=1;
+		int fy = y-char_height; // Position we're moving data From
+		int dy = lines*char_height; // Displacement Y
+		int mh = (region_y2*char_height)-(fy+dy); // Move height
+		debug("IL fy="+fy+" dy="+dy+" mh="+mh);
+		term.scroll_area(0, fy, term_width*char_width, mh, 0, dy);
+		term.clear_area(x, fy, term_width*char_width, fy+dy);
+		term.redraw(0, (region_y1 - 1) * char_height, term_width * char_width, (region_y2 - region_y1 + 1) * char_height);
+	}
+
+	// Delete lines from cursor position
+	protected void delete_lines(int lines) {
+		if(lines==0)
+			lines=1;
+		int fy = y-char_height; // Position to move into
+		int dy = lines*char_height; // Displacement Y
+		int mh = (region_y2*char_height)-(fy+dy); // Move height
+		int cy = (region_y2*char_height)-dy; // Clear Y start
+		debug("DL fy="+fy+" dy="+dy+" mh="+mh+" cy="+cy);
+		term.scroll_area(0, fy+dy, term_width*char_width, mh, 0, -dy);
+		term.clear_area(x, cy, term_width * char_width, cy+dy);
+		term.redraw(0, (region_y1 - 1) * char_height, term_width * char_width, (region_y2 - region_y1 + 1) * char_height);
+	}
+
+	// Insert chars from cursor position
+	protected void insert_chars(int chars) {
+		if(chars==0)
+			chars=1;
+		int fy = y-char_height; // Y Position to move into
+		int dx = chars*char_width; // Displacement X
+		int mw = (term_width*char_width)-x; // Move width
+		debug("IC fy="+fy+" dx="+dx+" mw="+mw);
+		term.scroll_area(x, fy, mw, char_height, dx, 0);
+		term.clear_area(x, fy, x+dx, y);
+		term.redraw(0, (region_y1 - 1) * char_height, term_width * char_width, (region_y2 - region_y1 + 1) * char_height);
+	}
+
+	// Delete chars from cursor position
+	protected void delete_chars(int chars) {
+		if(chars==0)
+			chars=1;
+		int fy = y-char_height; // Y Position to move into
+		int dx = chars*char_width; // Displacement X
+		int mw = (term_width*char_width)-x; // Move width
+		int cx = (term_width*char_width)-dx;
+		debug("DC y="+y+" x="+x+"("+(x/char_width)+") dx="+dx+" mw="+mw+" cx="+cx);
+		term.scroll_area(x+dx, fy, mw, char_height, -dx, 0);
+		term.clear_area(cx, fy, term_width*char_width, y);
+		term.redraw(0, (region_y1 - 1) * char_height, term_width * char_width, (region_y2 - region_y1 + 1) * char_height);
+	}
+
+	// Reverse scroll (lines move down)
 	protected void scroll_reverse() {
+		debug("SRWD");
 		term.draw_cursor();
-		term.scroll_area(0, (region_y1 - 1) * char_height, term_width * char_width,
-				(region_y2 - region_y1) * char_height, 0, char_height);
+		term.scroll_area(0, (region_y1 - 1) * char_height, term_width * char_width, (region_y2 - region_y1) * char_height, 0, char_height);
 		term.clear_area(x, y - char_height, term_width * char_width, y);
-		term.redraw(0, 0, term_width * char_width, term_height * char_height - char_height);
-		// term.setCursor(x, y);
+		term.redraw(0, (region_y1 - 1) * char_height, term_width * char_width, (region_y2 - region_y1 + 1) * char_height);
 		term.draw_cursor();
 	}
 
-	// Normal scroll one line
+	// Normal scroll one line (lines move UP)
 	protected void scroll_forward() {
+		debug("SFWD");
 		term.draw_cursor();
-		term.scroll_area(0, (region_y1 - 1) * char_height, term_width * char_width,
-				(region_y2 - region_y1 + 1) * char_height, 0, -char_height);
+		term.scroll_area(0, (region_y1 - 0) * char_height, term_width * char_width, (region_y2 - region_y1 + 1) * char_height, 0, -char_height);
 		term.clear_area(0, region_y2 * char_height - char_height, term_width * char_width, region_y2 * char_height);
-		term.redraw(0, (region_y1 - 1) * char_height, term_width * char_width,
-				(region_y2 - region_y1 + 1) * char_height);
+		term.redraw(0, (region_y1 - 1) * char_height, term_width * char_width, (region_y2 - region_y1 + 1) * char_height);
 		term.draw_cursor();
 	}
 
 	// Save cursor position
 	protected void save_cursor() {
-		// TODO
-		// System.out.println("save current cursor position");
+		saved_x = x;
+		saved_y = y;
+	}
+
+	// Restore cursor position
+	protected void restore_cursor() {
+		x = saved_x;
+		y = saved_y;
+	}
+
+	// Save cursor position alternate screen
+	protected void save_cursoralt() {
+		altsaved_x = x;
+		altsaved_y = y;
+	}
+
+	// Restore cursor position alternate screen
+	protected void restore_cursoralt() {
+		x = altsaved_x;
+		y = altsaved_y;
 	}
 
 	// Enable alternate character set
 	protected void ena_acs() {
-		// TODO
 		// System.out.println("enable alterate char set");
 	}
 
 	protected void exit_alt_charset_mode() {
-		// TODO
 		// System.out.println("end alternate character set (P)");
 	}
 
 	protected void enter_alt_charset_mode() {
-		// TODO
 		// System.out.println("start alternate character set (P)");
 	}
 
-	protected void reset_2string() {
-		// TODO
-		// rs2(reset string)
-	}
-
 	protected void exit_attribute_mode() {
-		// TODO
-		// System.out.println("turn off all attributes");
+		debug("Turn off all attributes");
 		term.resetAllAttributes();
 	}
 
@@ -212,7 +281,7 @@ public abstract class Emulator {
 	}
 
 	protected void exit_underline_mode() {
-		// TODO
+		term.setUnderline(false);
 	}
 
 	protected void enter_bold_mode() {
@@ -220,11 +289,17 @@ public abstract class Emulator {
 	}
 
 	protected void enter_underline_mode() {
-		term.setUnderline();
+		term.setUnderline(true);
 	}
 
 	protected void enter_reverse_mode() {
-		term.setReverse();
+		debug("Enter Reverse");
+		term.setReverse(true);
+	}
+
+	protected void exit_reverse_mode() {
+		debug("Exit Reverse");
+		term.setReverse(false);
 	}
 
 	protected void change_scroll_region(int y1, int y2) {
@@ -236,11 +311,23 @@ public abstract class Emulator {
 		term.draw_cursor();
 		x = (c - 1) * char_width;
 		y = r * char_height;
-		// System.out.println("setCourosr: "+x+" "+y);
 		term.setCursor(x, y);
 		term.draw_cursor();
 	}
 
+	protected void absolute_cursorY(int newY) {
+		term.draw_cursor();
+		y = newY * char_height;
+		term.setCursor(x, y);
+		term.draw_cursor();
+	}
+
+	protected void absolute_cursorX(int newX) {
+		term.draw_cursor();
+		x = (newX) * char_width;
+		term.setCursor(x, y);
+		term.draw_cursor();
+	}
 	protected void parm_down_cursor(int lines) {
 		term.draw_cursor();
 		y += (lines) * char_height;
@@ -285,8 +372,6 @@ public abstract class Emulator {
 
 	protected void parm_up_cursor(int lines) {
 		term.draw_cursor();
-		// x=0;
-		// y-=char_height;
 		y -= (lines) * char_height;
 		term.setCursor(x, y);
 		term.draw_cursor();
@@ -334,78 +419,103 @@ public abstract class Emulator {
 		check_region();
 	}
 
-	private byte[] b2 = new byte[2];
-	private byte[] b1 = new byte[1];
-
 	protected void draw_text() throws java.io.IOException {
 
 		int rx;
 		int ry;
 		int w;
-		int h;
+		byte[] b4 = new byte[4];
 
 		check_region();
 
 		rx = x;
 		ry = y;
 
+		String str = null;
 		byte b = getChar();
 		term.draw_cursor();
-		// System.out.print(new Character((char)b)+"["+Integer.toHexString(b&0xff)+"]");
-		if ((b & 0x80) != 0) {
-			term.clear_area(x, y - char_height, x + char_width * 2, y);
-			b2[0] = b;
-			b2[1] = getChar();
-			term.drawString(new String(b2, 0, 2, "EUC-JP"), x, y);
-			x += char_width;
-			x += char_width;
-			w = char_width * 2;
-			h = char_height;
+
+		// Check for multiple byte characters
+		if ((b&0xff)==0xc2) { // UTF8 2 byte ?
+			b4[0] = b;
+			b4[1] = getChar();
+			str = new String(b4, 0, 2, "UTF-8");
+			debug("UTF8 2 "+str);
+		} else if((b&0xff)==0xe0 || (b&0xff)==0xe2 || (b&0xff)==0xed) { // UTF8 3 byte ?
+			b4[0] = b;
+			b4[1] = getChar();
+			b4[2] = getChar();
+			str = new String(b4, 0, 3, "UTF-8");
+			debug("UTF8 3 "+str);
+		} else if((b&0xff)==0xf0) { // UTF8 4 byte ?
+			b4[0] = b;
+			b4[1] = getChar();
+			b4[2] = getChar();
+			b4[3] = getChar();
+			str = new String(b4, 0, 4, "UTF-8");
+			debug("UTF8 4 "+str);
+		} else if ((b & 0x80) != 0) { // EUC ?
+			b4[0] = b;
+			b4[1] = getChar();
+			str = new String(b4, 0, 2, "EUC-JP");
+			debug("EUC 2 "+str);
+		}
+
+		// If it was multiple byte
+		if (str!=null) {
+			int sw = term.getWidth(str);
+			w = char_width;
+			while(w<sw)
+				w += char_width;
+			term.clear_area(x, y - char_height, x + w, y);
+			term.drawString(str, x, y);
+			x += w;
 		} else {
 			pushChar(b);
 			int foo = getASCII(term_width - (x / char_width));
 			if (foo != 0) {
-				// System.out.println("foo="+foo+" "+x+", "+(y-char_height)+"
-				// "+(x+foo*char_width)+" "+y+" "+buf+" "+bufs+" "+b+" "+buf[bufs-foo]);
-				// System.out.println("foo="+foo+" ["+new String(buf, bufs-foo, foo));
 				term.clear_area(x, y - char_height, x + foo * char_width, y);
 				term.drawBytes(buf, bufs - foo, foo, x, y);
 			} else {
 				foo = 1;
 				term.clear_area(x, y - char_height, x + foo * char_width, y);
-				b1[0] = getChar();
-				term.drawBytes(b1, 0, foo, x, y);
-				// System.out.print("["+Integer.toHexString(bar[0]&0xff)+"]");
+				b4[0] = getChar();
+				term.drawBytes(b4, 0, foo, x, y);
 			}
 			x += (char_width * foo);
 			w = char_width * foo;
-			h = char_height;
 		}
-		term.redraw(rx, ry - char_height, w, h);
+		term.redraw(rx, ry - char_height, w, char_height);
 		term.setCursor(x, y);
 		term.draw_cursor();
 	}
 
 	private void check_region() {
+		// If cursor is past end of line
 		if (x >= term_width * char_width) {
-			// System.out.println("!! "+new
-			// Character((char)b)+"["+Integer.toHexString(b&0xff)+"]");
+			// Move it to start of next line
 			x = 0;
 			y += char_height;
-			// System.out.println("@1: ry="+ry);
 		}
 
+		// If cursor is past defined region
 		if (y > region_y2 * char_height) {
+			// Decrease cursor line until it's within region again
 			while (y > region_y2 * char_height) {
 				y -= char_height;
 			}
+			// Scroll region one line UP, clear cursor line
 			term.draw_cursor();
-			term.scroll_area(0, region_y1 * char_height, term_width * char_width, (region_y2 - region_y1) * char_height,
-					0, -char_height);
+			term.scroll_area(0, region_y1 * char_height, term_width * char_width, (region_y2 - region_y1) * char_height, 0, -char_height);
 			term.clear_area(0, y - char_height, term_width * char_width, y);
 			term.redraw(0, 0, term_width * char_width, region_y2 * char_height);
 			term.setCursor(x, y);
 			term.draw_cursor();
 		}
 	}
+
+	void debug(String msg) {
+		//System.out.println(msg);
+	}
+
 }

@@ -25,6 +25,9 @@ package com.jcraft.jcterm;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
+
+import com.jcraft.jsch.ChannelShell;
+
 import java.awt.image.*;
 
 public class JCTermPanelG2D extends Panel implements KeyListener, Term {
@@ -186,7 +189,7 @@ public class JCTermPanelG2D extends Panel implements KeyListener, Term {
 		this.connection = connection;
 		in = connection.getInputStream();
 		out = connection.getOutputStream();
-		emulator = new EmulatorVT100(this, in);
+		emulator = new EmulatorXTerm(this);
 		emulator.reset();
 		emulator.start();
 
@@ -477,10 +480,10 @@ public class JCTermPanelG2D extends Panel implements KeyListener, Term {
 		return bground;
 	}
 
-	public Object getColor(int index) {
+	public Color getColor(int index) {
 		if (colors == null || index < 0 || colors.length <= index)
 			return null;
-		return colors[index];
+		return (Color) colors[index];
 	}
 
 	public void setBold() {
@@ -505,5 +508,52 @@ public class JCTermPanelG2D extends Panel implements KeyListener, Term {
 		fground = defaultfground;
 		if (graphics != null)
 			graphics.setColor((java.awt.Color) getForeGround());
+	}
+
+	@Override
+	public Connection getConnection() {
+		return connection;
+	}
+
+	@Override
+	public int getWidth(String str) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public Color getDefaultForeGround() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Color getDefaultBackGround() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void setUnderline(boolean useUnderline) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void setReverse(boolean useReverse) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void setShowCursor(boolean showCursor) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void setAltScreen(boolean useAltScreen) {
+		// TODO Auto-generated method stub
+
 	}
 }

@@ -1,9 +1,8 @@
-/* -*-mode:java; c-basic-offset:2; -*- */
 /* JCTerm
  * Copyright (C) 2002,2007 ymnk, JCraft,Inc.
  *
- * Written by: ymnk<ymnk@jcaft.com>
- *
+ * Written by: ymnk <ymnk@jcaft.com>
+ * Modified by: Guino <wbbo@hotmail.com> (2020)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public License
@@ -22,9 +21,13 @@
 
 package com.jcraft.jcterm;
 
+import java.awt.Color;
+
 public interface Term {
 
 	void start(Connection connection);
+
+	Connection getConnection();
 
 	int getRowCount();
 
@@ -42,7 +45,6 @@ public interface Term {
 
 	void redraw(int x, int y, int width, int height);
 
-	// void redraw();
 	void clear_area(int x1, int y1, int x2, int y2);
 
 	void scroll_area(int x, int y, int w, int h, int dx, int dy);
@@ -51,11 +53,17 @@ public interface Term {
 
 	void drawString(String str, int x, int y);
 
+	int getWidth(String str);
+
 	void beep();
 
 	void setDefaultForeGround(Object foreground);
 
 	void setDefaultBackGround(Object background);
+
+	Color getDefaultForeGround();
+
+	Color getDefaultBackGround();
 
 	void setForeGround(Object foreground);
 
@@ -63,9 +71,11 @@ public interface Term {
 
 	void setBold();
 
-	void setUnderline();
+	void setUnderline(boolean useUnderline);
 
-	void setReverse();
+	void setReverse(boolean useReverse);
+
+	void setShowCursor(boolean showCursor);
 
 	void resetAllAttributes();
 
@@ -73,5 +83,7 @@ public interface Term {
 
 	int getTermHeight();
 
-	Object getColor(int index);
+	Color getColor(int index);
+
+	void setAltScreen(boolean useAltScreen);
 }

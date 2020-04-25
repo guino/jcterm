@@ -1,9 +1,8 @@
-/* -*-mode:java; c-basic-offset:2; -*- */
 /* JCTerm
  * Copyright (C) 2002,2007 ymnk, JCraft,Inc.
  *
- * Written by: ymnk<ymnk@jcaft.com>
- *
+ * Written by: ymnk <ymnk@jcaft.com>
+ * Modified by: Guino <wbbo@hotmail.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public License
@@ -19,195 +18,138 @@
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-
 package com.jcraft.jcterm;
 
-import java.io.InputStream;
+import java.awt.Color;
 
-public class EmulatorVT100 extends Emulator {
+public class EmulatorXTerm extends Emulator {
 
-	public EmulatorVT100(Term term, InputStream in) {
-		super(term, in);
+	// Same as parent
+	public EmulatorXTerm(Term term) {
+		super(term);
 	}
 
-	public void setInputStream(InputStream in) {
-		this.in = in;
-	}
-
-	public void setTerm(Term term) {
-		this.term = term;
-	}
-
+	// Main sub
 	public void start() {
+		// Reset terminal variables
 		reset();
 
+		// Prepare space and variables to parse incomming data
 		int[] intarg = new int[10];
 		int intargi = 0;
+		int args = 0;
+		byte b;
 
+		// Default cursor position
 		x = 0;
 		y = char_height;
 
-		byte b;
-
 		try {
+			// Forever (until an exception -- likely disconnection)
 			while (true) {
-
+				// Get one character/byte
 				b = getChar();
-
-				// System.out.println("@0: "+ new
-				// Character((char)b)+"["+Integer.toHexString(b&0xff)+"]");
-
-				// System.out.println("@0: ry="+ry);
-
-				/*
-				 * outputs from infocmp on RedHat8.0 # Reconstructed via infocmp from file:
-				 * /usr/share/terminfo/v/vt100 vt100|vt100-am|dec vt100 (w/advanced video), am,
-				 * msgr, xenl, xon, cols#80, it#8, lines#24, vt#3,
-				 * acsc=``aaffggjjkkllmmnnooppqqrrssttuuvvwwxxyyzz{{||}}~~, bel=^G,
-				 * blink=\E[5m$<2>, bold=\E[1m$<2>, clear=\E[H\E[J$<50>, cr=^M,
-				 * csr=\E[%i%p1%d;%p2%dr, cub=\E[%p1%dD, cub1=^H, cud=\E[%p1%dB, cud1=^J,
-				 * cuf=\E[%p1%dC, cuf1=\E[C$<2>, cup=\E[%i%p1%d;%p2%dH$<5>, cuu=\E[%p1%dA,
-				 * cuu1=\E[A$<2>, ed=\E[J$<50>, el=\E[K$<3>, el1=\E[1K$<3>, enacs=\E(B\E)0,
-				 * home=\E[H, ht=^I, hts=\EH, ind=^J, ka1=\EOq, ka3=\EOs, kb2=\EOr, kbs=^H,
-				 * kc1=\EOp, kc3=\EOn, kcub1=\EOD, kcud1=\EOB, kcuf1=\EOC, kcuu1=\EOA,
-				 * kent=\EOM, kf0=\EOy, kf1=\EOP, kf10=\EOx, kf2=\EOQ, kf3=\EOR, kf4=\EOS,
-				 * kf5=\EOt, kf6=\EOu, kf7=\EOv, kf8=\EOl, kf9=\EOw, rc=\E8, rev=\E[7m$<2>,
-				 * ri=\EM$<5>, rmacs=^O, rmam=\E[?7l, rmkx=\E[?1l\E>, rmso=\E[m$<2>,
-				 * rmul=\E[m$<2>, rs2=\E>\E[?3l\E[?4l\E[?5l\E[?7h\E[?8h, sc=\E7,
-				 * sgr=\E[0%?%p1%p6%|%t;1%;%?%p2%t;4%;%?%p1%p3%|%t;7%;%?%p4%t;5%;m%?%p9%t\016%e\
-				 * 017%;$<2>, sgr0=\E[m\017$<2>, smacs=^N, smam=\E[?7h, smkx=\E[?1h\E=,
-				 * smso=\E[7m$<2>, smul=\E[4m$<2>, tbc=\E[3g,
-				 */
-				/*
-				 * am terminal has automatic margnins msgr safe to move while in standout mode
-				 * xenl newline ignored after 80 cols (concept) xon terminal uses xon/xoff
-				 * handshake cols number of columns in a line it tabs initially every # spaces
-				 * lines number of lines on screen of page vt virstual terminal number(CB/unix)
-				 * acsc graphics charset pairs, based on vt100 bel bell blink turn on blinking
-				 * bold turn on bold(extra bright) mode clear clear screen and home cursor(P*)
-				 * cr carriage return (P)(P*) csr change region to line #1 to line #2(P) cub
-				 * move #1 characters to the left (P) cub1 move left one space cud down #1 lines
-				 * (P*) cud1 down one line cuf move to #1 characters to the right. cuf1
-				 * non-destructive space (move right one space) cup move to row #1 columns #2
-				 * cuu up #1 lines (P*) cuu1 up one line ed clear to end of screen (P*) el clear
-				 * to end of line (P) el1 Clear to begining of line enacs enable alterate char
-				 * set home home cursor (if no cup) ht tab to next 8-space hardware tab stop hts
-				 * set a tab in every row, current columns ind scroll text up ka1 upper left of
-				 * keypad ka3 upper right of keypad kb2 center of keypad kbs backspace key kc1
-				 * lower left of keypad kc3 lower right of keypad kcub1 left-arrow key kcud1
-				 * down-arrow key kcuf1 right-arrow key kcuu1 up-arrow key kent enter/sekd key
-				 * kf0 F0 function key kf1 F1 function key kf10 F10 function key kf2 F2 function
-				 * key kf3 F3 function key kf4 F4 function key kf5 F5 function key kf6 F6
-				 * function key kf7 F7 function key kf8 F8 function key kf9 F9 function key rc
-				 * restore cursor to position of last save_cursor rev turn on reverse video mode
-				 * ri scroll text down (P) rmacs end alternate character set rmam turn off
-				 * automatic margins rmkx leave 'keybroad_transmit' mode rmso exit standout mode
-				 * rmul exit underline mode rs2 reset string sc save current cursor position (P)
-				 * sgr define video attribute #1-#9(PG9) sgr0 turn off all attributes smacs
-				 * start alternate character set (P) smam turn on automatic margins smkx enter
-				 * 'keyborad_transmit' mode smso begin standout mode smul begin underline mode
-				 * tbc clear all tab stops(P)
-				 */
+				// If zero, ignore it
 				if (b == 0) {
 					continue;
 				}
-
+				// If it's an ESC
 				if (b == 0x1b) {
+					// Get another character/byte
 					b = getChar();
 
-					// System.out.println("@1: "+ new
-					// Character((char)b)+"["+Integer.toHexString(b&0xff)+"]");
+					// -- Below are C1 (8-Bit) Control Characters --
 
-					if (b == 'M') { // sr \EM sr scroll text down (P)
+					if (b == 'M') { // Reverse Index (scroll text down)
 						scroll_reverse();
 						continue;
 					}
 
-					if (b == 'D') { // sf
+					if (b == 'D') { // Index (scroll text up)
 						scroll_forward();
 						continue;
 					}
 
+					if (b == ']') { // Operating System Command
+						String data = "";
+						byte lastb = 0;
+						while (true) {
+							b = getChar();
+							if ((b & 0xff) == 0x07)
+								break;
+							if ((b & 0xff) == 0x9c && (lastb & 0xff) == 0x1b)
+								break;
+							data += (char) b;
+							lastb = b;
+						}
+						if(data.equals("10;?")) {
+							// Get Foreground color cmd
+							debug("Get FG Color CMD");
+						} else if(data.equals("11;?")) {
+							// Get Background color cmd
+							debug("Get BG Color CMD");
+						} else {
+							debug("Got OSC " + data);
+						}
+						continue;
+					}
+
+					// -- Below are VT100 8-Bit Control Characters --
+
 					if (b == '7') {
+						debug("Save cursor");
 						save_cursor();
 						continue;
 					}
 
-					if (b == '(') {
-						b = getChar();
-						if (b == 'B') {
-							b = getChar();
-							if (b == 0x1b) {
-								b = getChar();
-								if (b == ')') {
-									b = getChar();
-									if (b == '0') { // enacs
-										ena_acs();
-										continue;
-									} else {
-										pushChar((byte) '0');
-									}
-								} else {
-									pushChar((byte) ')');
-								}
-							} else {
-								pushChar((byte) 0x1b);
-							}
-						} else {
-							pushChar((byte) 'B');
-						}
-					}
-
-					if (b == '>') {
-						b = getChar(); // 0x1b
-						b = getChar(); // '['
-						b = getChar(); // '?'
-						b = getChar(); // '3'
-						b = getChar(); // 'l'
-						b = getChar(); // 0x1b
-						b = getChar(); // '['
-						b = getChar(); // '?'
-						b = getChar(); // '4'
-						b = getChar(); // 'l'
-						b = getChar(); // 0x1b
-						b = getChar(); // '['
-						b = getChar(); // '?'
-						b = getChar(); // '5'
-						b = getChar(); // 'l'
-						b = getChar(); // 0x1b
-						b = getChar(); // '['
-						b = getChar(); // '?'
-						b = getChar(); // '7'
-						b = getChar(); // 'h'
-						b = getChar(); // 0x1b
-						b = getChar(); // '['
-						b = getChar(); // '?'
-						b = getChar(); // '8'
-						b = getChar(); // 'h'
-
-						reset_2string();
+					if (b == '8') {
+						debug("Restore cursor");
+						restore_cursor();
 						continue;
 					}
 
-					if (b != '[') {
-						System.out.print("@11: " + new Character((char) b) + "[" + Integer.toHexString(b & 0xff) + "]");
+					if (b == '(' || b == ')') { // Switch Character Set (not implemented)
+						b = getChar();
+						if (b == 'B') {
+							debug("US ASCII");
+							continue;
+						}
+						if (b == '0') { // enacs
+							ena_acs();
+							continue;
+						}
+					}
+
+					if(b=='=') { // Application keypad
+						continue;
+					}
+
+					if(b=='>') { // Normal keypad
+						continue;
+					}
+
+					if (b != '[') { // If it's something else we don't know (not implemented)
+						System.out.print("Unknown code: ESC " + ((char) b) + "[" + Integer.toHexString(b & 0xff) + "]");
 						pushChar(b);
 						continue;
 					}
 
-					// System.out.print("@2: "+ new
-					// Character((char)b)+"["+Integer.toHexString(b&0xff)+"]");
-
+					// Reset variables to read parameters after CSI
 					intargi = 0;
 					intarg[intargi] = 0;
 					int digit = 0;
+					args = 0;
 
+					// Read all parameters we can
 					while (true) {
+						// Get character/byte
 						b = getChar();
-						// System.out.print("#"+new
-						// Character((char)b)+"["+Integer.toHexString(b&0xff)+"]");
+						// If it's parameter delimiter
 						if (b == ';') {
+							// If we read any digits
 							if (digit > 0) {
+								// Increment arguments and parameter counts, reset next parameter values
+								args++;
 								intargi++;
 								intarg[intargi] = 0;
 								digit = 0;
@@ -215,27 +157,25 @@ public class EmulatorVT100 extends Emulator {
 							continue;
 						}
 
+						// If it's a numeric digit
 						if ('0' <= b && b <= '9') {
+							// Add it to current parameter
 							intarg[intargi] = intarg[intargi] * 10 + (b - '0');
 							digit++;
 							continue;
 						}
 
+						// Got here so we're done reading parameters/digits
 						pushChar(b);
 						break;
 					}
+					// Increment argument count if we had any digit left
+					if(digit>0)
+						args++;
 
+					// Read the command character/byte
 					b = getChar();
-
-					// System.out.print("@4: "+ new
-					// Character((char)b)+"["+Integer.toHexString(b&0xff)+"]");
-
 					if (b == 'm') {
-						/*
-						 * b=getChar(); if(b=='$'){ b=getChar(); // < b=getChar(); // 2 b=getChar(); //
-						 * > } else{ pushChar(b); }
-						 */
-
 						if (digit == 0 && intargi == 0) {
 							b = getChar();
 							if (b == 0x0f) { // sgr0
@@ -249,10 +189,12 @@ public class EmulatorVT100 extends Emulator {
 							}
 						}
 
+						// Process each parameter
 						for (int i = 0; i <= intargi; i++) {
-							Object fg = null;
-							Object bg = null;
-							Object tmp = null;
+							Color fg = null;
+							Color bg = null;
+
+							//debug("CSI "+intarg[i]+" m");
 
 							switch (intarg[i]) {
 							case 0: // Reset all attributes
@@ -261,16 +203,39 @@ public class EmulatorVT100 extends Emulator {
 							case 1: // Bright // bold
 								enter_bold_mode();
 								continue;
-							case 2: // Dim
-								break;
+							case 2: // Dim/Faint
+								continue;
+							case 3: // Italic
+								continue;
 							case 4: // Underline
 								enter_underline_mode();
 								continue;
 							case 5: // Blink
-							case 8: // Hidden
-								break;
+								continue;
 							case 7: // reverse
 								enter_reverse_mode();
+								continue;
+							case 8: // Hidden
+								continue;
+							case 9: // -Crossed-
+								continue;
+							case 21: // Double underline
+								continue;
+							case 22: // NOT Bolt and NOT Dim/Faint
+								continue;
+							case 23: // NOT Italic
+								continue;
+							case 24: // NOT Underlined
+								exit_underline_mode();
+								continue;
+							case 25: // NOT Blink
+								continue;
+							case 27: // exit reverse
+								exit_reverse_mode();
+								continue;
+							case 28: // NOT Hidden
+								continue;
+							case 29: // NOT Crossed
 								continue;
 							case 30:
 							case 31:
@@ -280,9 +245,10 @@ public class EmulatorVT100 extends Emulator {
 							case 35:
 							case 36:
 							case 37:
-								tmp = term.getColor(intarg[i] - 30);
-								if (tmp != null)
-									fg = tmp;
+								fg = term.getColor(intarg[i] - 30);
+								break;
+							case 39:
+								fg = term.getDefaultForeGround();
 								break;
 							case 40:
 							case 41:
@@ -292,40 +258,63 @@ public class EmulatorVT100 extends Emulator {
 							case 45:
 							case 46:
 							case 47:
-								tmp = term.getColor(intarg[i] - 40);
-								if (tmp != null)
-									bg = tmp;
+								bg = term.getColor(intarg[i] - 40);
+								break;
+							case 49:
+								bg = term.getDefaultBackGround();
 								break;
 							default:
-								break;
+								debug("Unknown code: CSI "+intarg[i]+" m");
+								continue;
 							}
 							if (fg != null)
 								term.setForeGround(fg);
 							if (bg != null)
 								term.setBackGround(bg);
 						}
-						// System.out.println("fg: "+fg+" bg: "+bg);
 						continue;
 					}
 
 					if (b == 'r') { // csr
 						change_scroll_region(intarg[0], intarg[1]);
-						// System.out.println("r: "+region_y1+", "+region_y2+", intargi="+intargi);
 						continue;
 					}
 
 					if (b == 'H') { // cup
-						/*
-						 * b=getChar(); if(b!='$'){ // home pushChar(b); } else{ b=getChar(); // <
-						 * b=getChar(); // 5 b=getChar(); // > }
-						 */
-
 						if (digit == 0 && intargi == 0) {
 							intarg[0] = intarg[1] = 1;
 						}
-
-						// System.out.println("H: "+region_y1+", "+region_y2+", intargi="+intargi);
 						cursor_address(intarg[0], intarg[1]);
+						continue;
+					}
+
+					if (b == 'd') { // Line Position Absolute
+						absolute_cursorY(intarg[0]);
+						continue;
+					}
+
+					if (b == 'G') { // Column Position Absolute
+						absolute_cursorX(intarg[0]);
+						continue;
+					}
+
+					if (b == 'L') { // Insert lines
+						insert_lines(intarg[0]);
+						continue;
+					}
+
+					if (b == 'M') { // Delete lines
+						delete_lines(intarg[0]);
+						continue;
+					}
+
+					if (b == 'P') { // Delete chars
+						delete_chars(intarg[0]);
+						continue;
+					}
+
+					if (b == '@') { // Insert chars
+						insert_chars(intarg[0]);
 						continue;
 					}
 
@@ -348,11 +337,6 @@ public class EmulatorVT100 extends Emulator {
 					}
 
 					if (b == 'K') { // el
-						/*
-						 * b=getChar(); // if(b=='$'){ b=getChar(); // < b=getChar(); // 3 b=getChar();
-						 * // > } else{ pushChar(b); }
-						 */
-
 						if (digit == 0 && intargi == 0) { // el
 							clr_eol();
 						} else { // el1
@@ -362,9 +346,25 @@ public class EmulatorVT100 extends Emulator {
 					}
 
 					if (b == 'J') {
-						// for(int i=0; i<intargi; i++){ System.out.print(intarg[i]+" ");}
-						// System.out.println(intarg[0]+"<- intargi="+intargi);
 						clr_eos();
+						continue;
+					}
+
+					if (b == 'S') {
+						if(intarg[0]==0)
+							intarg[0]=1;
+						debug("Scroll forward "+intarg[0]);
+						for(int l=0;l<intarg[0];l++)
+							scroll_forward();
+						continue;
+					}
+
+					if (b == 'T') {
+						if(intarg[0]==0)
+							intarg[0]=1;
+						debug("Scroll reverse "+intarg[0]);
+						for(int l=0;l<intarg[0];l++)
+							scroll_reverse();
 						continue;
 					}
 
@@ -376,52 +376,113 @@ public class EmulatorVT100 extends Emulator {
 						continue;
 					}
 
-					if (b == '?') {
-						b = getChar();
-						if (b == '1') {
+					// DEC Private Mode Reset/set (CSI ? . l/h) and Send Device Attributes (CSI > . c)
+					if (b == '?' || b == '>') {
+						String cmd = (char)b+" ";
+						while(true) {
 							b = getChar();
-							if (b == 'l' || b == 'h') {
-								b = getChar();
-								if (b == 0x1b) {
-									b = getChar();
-									if (b == '>' || // rmkx , leave 'keybroad_transmit' mode
-											b == '=') { // smkx , enter 'keyborad_transmit' mode
-										// TODO
-										continue;
+							if(('0' <= b && b <= '9') || b==';') {
+								cmd += (char)b;
+							} else {
+								// Split by ; and process each code separately
+								for(String code : cmd.substring(2).split(";")) {
+									String m = null;
+									if(code.equals("1") && b=='l') {
+										// Normal Cursor Keys
+										m = "Normal Cursor Keys";
+									} else if(code.equals("1") && b=='h') {
+										// Application Cursor Keys
+										m = "App Cursor Keys";
+									} else if(code.equals("7") && b=='h') {
+										// Wrap around mode
+										m = "Wraparound mode";
+									} else if(code.equals("25") && b=='l') {
+										// Hide cursor
+										m = "Hide Cursor";
+										term.setShowCursor(false);
+									} else if(code.equals("25") && b=='h') {
+										// Show cursor
+										m = "Show Cursor";
+										term.setShowCursor(true);
+									} else if(code.equals("12") && b=='l') {
+										// Stop Blinking Cursor
+										m = "Stop Blink Cursor";
+									} else if(code.equals("12") && b=='h') {
+										// Start Blinking Cursor
+										m = "Start Blink Cursor";
+									} else if(code.equals("1047") && b=='l') {
+										// Restore Cursor
+										m = "RESTORE CURSOR";
+										restore_cursoralt();
+									} else if(code.equals("1047") && b=='h') {
+										// Save Cursor
+										m = "SAVE CURSOR";
+										save_cursoralt();
+									} else if(code.equals("1048") && b=='l') {
+										// Alternate Screen Buffer OFF
+										m = "ALT SCR OFF";
+										term.setAltScreen(false);
+									} else if(code.equals("1048") && b=='h') {
+										// Alternate Screen Buffer ON
+										m = "ALT SCR ON";
+										term.setAltScreen(true);
+									} else if(code.equals("1049") && b=='l') {
+										// Alternate Screen Buffer OFF + restore cursor
+										m = "ALT SCR OFF RESTORE CURSOR";
+										term.setAltScreen(false);
+										restore_cursoralt();
+									} else if(code.equals("1049") && b=='h') {
+										// Alternate Screen Buffer ON + save cursor
+										m = "ALT SCR ON SAVE CURSOR";
+										save_cursoralt();
+										term.setAltScreen(true);
+									} else if(code.equals("2004") && b=='l') {
+										// Stop bracketed paste mode
+										m = "Stop Brack paste";
+									} else if(code.equals("2004") && b=='h') {
+										// Start bracketed paste mode
+										m = "Start Brack paste";
+									} else if(code.isEmpty() && b=='c') {
+										m = "Get Dev Attributes";
+									} else if(b=='m') {
+										m = "Set/reset key modifier options";
+									}
+									if(m!=null) {
+										debug(m);
+									} else {
+										System.out.println("Unknown code: "+code+" in CSI "+cmd+(char)b);
 									}
 								}
-							} else if (b == 'h') {
-								b = getChar();
-								if (b == 0x1b) {
-									b = getChar();
-									if (b == '=') { // smkx enter 'keyborad_transmit' mode
-										continue;
-									}
-								}
+								break;
 							}
-						} else if (b == '7') {
-							b = getChar();
-							if (b == 'h') { // smam
-								// TODO
-								// System.out.println("turn on automatic magins");
-								continue;
-							} else if (b == 'l') { // rmam
-								// TODO
-								// System.out.println("turn off automatic magins");
-								continue;
-							}
-							pushChar(b);
-							b = '7';
-						} else {
 						}
+						continue;
 					}
 
 					if (b == 'h') { // kh \Eh home key
 						continue;
 					}
 
-					System.out.println("unknown " + Integer.toHexString(b & 0xff) + " " + new Character((char) b) + ", "
-							+ intarg[0] + ", " + intarg[1] + ", " + intarg[2] + ",intargi=" + intargi);
+					if (b == 't') { // Title save/restore?
+						continue;
+					}
+
+					if (b == 'l') { // Keyboard mode : 0=reset, 2=action, 4=replace, 12=send/receive, 20=normal line feed
+						debug("Keyboard mode: "+intarg[0]);
+						continue;
+					}
+
+					if (b == 'n') { // Status report 5='OK', 6=Cursor position
+						debug("Status report: "+intarg[0]);
+						continue;
+					}
+
+					// Got here so we don't know what this was (not implemented)
+					System.out.print("Unknown code: CSI ");
+					for(int a=0;a<args;a++) {
+						System.out.print(intarg[a]+(a==args-1 ? "" : ";"));
+					}
+					System.out.println((char)b);
 					continue;
 				}
 
@@ -456,9 +517,7 @@ public class EmulatorVT100 extends Emulator {
 				}
 
 				if (b == 0x0a) { // '\n'
-					// System.out.println("x="+x+",y="+y);
 					cursor_down();
-					// check_region();
 					continue;
 				}
 
@@ -475,6 +534,11 @@ public class EmulatorVT100 extends Emulator {
 	private static byte[] ENTER = { (byte) 0x0d };
 	private static byte[] UP = { (byte) 0x1b, (byte) 0x4f, (byte) 0x41 };
 	private static byte[] DOWN = { (byte) 0x1b, (byte) 0x4f, (byte) 0x42 };
+	private static byte[] PGUP = { (byte) 0x1b, (byte) '[', (byte) '5', (byte) '~'};
+	private static byte[] PGDOWN = { (byte) 0x1b, (byte) '[',  (byte) '6', (byte) '~'};
+	private static byte[] HOME = { (byte) 0x1b, (byte) '[', (byte) '1', (byte) '~'};
+	private static byte[] END = { (byte) 0x1b, (byte) '[',  (byte) '4', (byte) '~'};
+	private static byte[] DEL = { (byte) 0x1b, (byte) '[',  (byte) '3', (byte) '~'};
 	private static byte[] RIGHT = { (byte) 0x1b, (byte) /* 0x5b */0x4f, (byte) 0x43 };
 	private static byte[] LEFT = { (byte) 0x1b, (byte) /* 0x5b */0x4f, (byte) 0x44 };
 	private static byte[] F1 = { (byte) 0x1b, (byte) 0x4f, (byte) 'P' };
@@ -499,6 +563,26 @@ public class EmulatorVT100 extends Emulator {
 
 	public byte[] getCodeDOWN() {
 		return DOWN;
+	}
+
+	public byte[] getCodePGUP() {
+		return PGUP;
+	}
+
+	public byte[] getCodePGDOWN() {
+		return PGDOWN;
+	}
+
+	public byte[] getCodeHOME() {
+		return HOME;
+	}
+
+	public byte[] getCodeEND() {
+		return END;
+	}
+
+	public byte[] getCodeDEL() {
+		return DEL;
 	}
 
 	public byte[] getCodeRIGHT() {

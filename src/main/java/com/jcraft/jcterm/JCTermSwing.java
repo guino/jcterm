@@ -1,9 +1,8 @@
-/* -*-mode:java; c-basic-offset:2; -*- */
 /* JCTerm
  * Copyright (C) 2002,2007 ymnk, JCraft,Inc.
  *
- * Written by: ymnk<ymnk@jcaft.com>
- *
+ * Written by: ymnk <ymnk@jcaft.com>
+ * Modified by: Guino <wbbo@hotmail.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public License
@@ -19,7 +18,6 @@
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-
 package com.jcraft.jcterm;
 
 import java.awt.*;
@@ -28,8 +26,8 @@ import javax.swing.*;
 import java.io.*;
 import java.awt.image.*;
 
-public class JCTermSwing extends JPanel implements KeyListener, /* Runnable, */
-Term {
+public class JCTermSwing extends JPanel implements KeyListener, Term {
+	private static final long serialVersionUID = 3444724742030389924L;
 	OutputStream out;
 	InputStream in;
 	Emulator emulator = null;
@@ -37,19 +35,22 @@ Term {
 	Connection connection = null;
 
 	private BufferedImage img;
+	private BufferedImage altimg;
+	private long altResized = 0;
+	private Thread altResizeThread = null;
 	private BufferedImage background;
-	private Graphics2D cursor_graphics;
 	private Graphics2D graphics;
-	private java.awt.Color defaultbground = Color.black;
-	private java.awt.Color defaultfground = Color.white;
-	private java.awt.Color bground = Color.black;
-	private java.awt.Color fground = Color.white;
-	private java.awt.Component term_area = null;
-	private java.awt.Font font;
+	private Color defaultbground = Color.black;
+	private Color defaultfground = Color.white;
+	private Color bground = Color.black;
+	private Color fground = Color.white;
+	private Component term_area = null;
+	private Font font;
 
 	private boolean bold = false;
 	private boolean underline = false;
 	private boolean reverse = false;
+	private boolean showCursor = true;
 
 	private int term_width = 80;
 	private int term_height = 24;
@@ -62,16 +63,13 @@ Term {
 	private int char_width;
 	private int char_height;
 
-	// private int line_space=0;
-	private int line_space = -2;
+	private int line_space = 0;
+	@SuppressWarnings("unused")
 	private int compression = 0;
 
 	private boolean antialiasing = true;
 
-	private Splash splash = null;
-
-	private final Object[] colors = { Color.black, Color.red, Color.green, Color.yellow, Color.blue, Color.magenta,
-			Color.cyan, Color.white };
+	private final Color[] colors = { Color.black, Color.red, Color.green, Color.yellow, Color.blue, Color.magenta, Color.cyan, Color.white };
 
 	public JCTermSwing() {
 
@@ -80,49 +78,48 @@ Term {
 
 		setFont("Monospaced-14");
 
-		setSize(getTermWidth(), getTermHeight());
+		setSize(getTermWidth()+1, getTermHeight());
 
-		if (splash != null)
-			splash.draw(img, getTermWidth(), getTermHeight());
-		else
-			clear();
+		clear();
 
 		term_area = this;
 
-		setPreferredSize(new Dimension(getTermWidth(), getTermHeight()));
-
-		setSize(getTermWidth(), getTermHeight());
 		setFocusable(true);
 		enableInputMethods(true);
 
 		setFocusTraversalKeysEnabled(false);
-		// setOpaque(true);
+
+	}
+
+	public Font getFont() {
+		return font;
 	}
 
 	void setFont(String fname) {
-		font = java.awt.Font.decode(fname);
+		// Calculate char width height and descent
+		font = Font.decode(fname);
 		BufferedImage img = new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB);
 		Graphics2D graphics = (Graphics2D) (img.getGraphics());
 		graphics.setFont(font);
 		{
 			FontMetrics fo = graphics.getFontMetrics();
 			descent = fo.getDescent();
-			/*
-			 * System.out.println(fo.getDescent()); System.out.println(fo.getAscent());
-			 * System.out.println(fo.getLeading()); System.out.println(fo.getHeight());
-			 * System.out.println(fo.getMaxAscent());
-			 * System.out.println(fo.getMaxDescent());
-			 * System.out.println(fo.getMaxDecent());
-			 * System.out.println(fo.getMaxAdvance());
-			 */
+
+//			System.out.println(fo.getDescent()); System.out.println(fo.getAscent());
+//			System.out.println(fo.getLeading()); System.out.println(fo.getHeight());
+//			System.out.println(fo.getMaxAscent());
+//			System.out.println(fo.getMaxDescent());
+//			System.out.println(fo.getMaxDecent());
+//			System.out.println(fo.getMaxAdvance());
+
 			char_width = (int) (fo.charWidth((char) '@'));
 			char_height = (int) (fo.getHeight()) + (line_space * 2);
 			descent += line_space;
 		}
-
 		img.flush();
 		graphics.dispose();
 
+		// Adjust background image size
 		background = new BufferedImage(char_width, char_height, BufferedImage.TYPE_INT_RGB);
 		{
 			Graphics2D foog = (Graphics2D) (background.getGraphics());
@@ -134,8 +131,11 @@ Term {
 
 	public void setSize(int w, int h) {
 
-		super.setSize(w, h);
-		BufferedImage imgOrg = img;
+		// Not changing dimensions, leave
+		if(w==getTermWidth() && h==getTermHeight())
+			return;
+
+		BufferedImage imgOrg = getImg();
 		if (graphics != null)
 			graphics.dispose();
 
@@ -144,11 +144,20 @@ Term {
 		term_width = column;
 		term_height = row;
 
+		// Resize panel, set its preferred size and set terminal size (in character size multiple)
+		super.setSize(column*getCharWidth(), row*getCharHeight());
+		setPreferredSize(new Dimension(column*getCharWidth(), row*getCharHeight()));
+
 		if (emulator != null)
 			emulator.reset();
 
-		img = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
-		graphics = (Graphics2D) (img.getGraphics());
+		if(altimg!=null) {
+			altimg = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+		} else {
+			img = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+		}
+
+		graphics = (Graphics2D) (getImg().getGraphics());
 		graphics.setFont(font);
 
 		clear_area(0, 0, w, h);
@@ -160,8 +169,6 @@ Term {
 			graphics.drawImage(imgOrg, 0, 0, term_area);
 			graphics.setClip(clip);
 		}
-
-		resetCursorGraphics();
 
 		setAntiAliasing(antialiasing);
 
@@ -179,21 +186,27 @@ Term {
 		this.connection = connection;
 		in = connection.getInputStream();
 		out = connection.getOutputStream();
-		emulator = new EmulatorVT100(this, in);
+		emulator = new EmulatorXTerm(this);
 		emulator.reset();
 		emulator.start();
 
-		if (splash != null)
-			splash.draw(img, getTermWidth(), getTermHeight());
-		else
-			clear();
+		clear();
 		redraw(0, 0, getTermWidth(), getTermHeight());
 	}
 
 	public void paintComponent(Graphics g) {
-		super.paintComponent(g);
-		if (img != null) {
-			g.drawImage(img, 0, 0, term_area);
+		//super.paintComponent(g); // NOT NECESSARY SINCE WE PAINT THE WHOLE AREA -- MAKES RESIZE UGLY
+		if (getImg() != null) {
+			g.drawImage(getImg(), 0, 0, term_area);
+			// If showing cursor (on valid position)
+			if(showCursor && y>0) {
+				Color c = g.getColor();
+				g.setColor(getForeGround());
+				g.setXORMode(getBackGround());
+				g.fillRect(x, y - char_height, char_width, char_height);
+				g.setPaintMode();
+				g.setColor(c);
+			}
 		}
 	}
 
@@ -233,6 +246,21 @@ Term {
 			break;
 		case KeyEvent.VK_DOWN:
 			code = emulator.getCodeDOWN();
+			break;
+		case KeyEvent.VK_PAGE_UP:
+			code = emulator.getCodePGUP();
+			break;
+		case KeyEvent.VK_PAGE_DOWN:
+			code = emulator.getCodePGDOWN();
+			break;
+		case KeyEvent.VK_HOME:
+			code = emulator.getCodeHOME();
+			break;
+		case KeyEvent.VK_END:
+			code = emulator.getCodeEND();
+			break;
+		case KeyEvent.VK_DELETE:
+			code = emulator.getCodeDEL();
 			break;
 		case KeyEvent.VK_RIGHT:
 			code = emulator.getCodeRIGHT();
@@ -339,14 +367,13 @@ Term {
 	}
 
 	public void setCursor(int x, int y) {
-		// System.out.println("setCursor: "+x+","+y);
+		redraw(this.x, this.y - char_height, char_width, char_height);
 		this.x = x;
 		this.y = y;
+		redraw(x, y - char_height, char_width, char_height);
 	}
 
 	public void draw_cursor() {
-		cursor_graphics.fillRect(x, y - char_height, char_width, char_height);
-		repaint(x, y - char_height, char_width, char_height);
 	}
 
 	public void redraw(int x, int y, int width, int height) {
@@ -361,31 +388,25 @@ Term {
 	}
 
 	public void scroll_area(int x, int y, int w, int h, int dx, int dy) {
-		// System.out.println("scroll_area: "+x+" "+y+" "+w+" "+h+" "+dx+" "+dy);
+		//System.out.println("scroll_area: "+x+" "+y+" "+w+" "+h+" "+dx+" "+dy);
 		graphics.copyArea(x, y, w, h, dx, dy);
-		repaint(x + dx, y + dy, w, h);
+		redraw(x + dx, y + dy, w, h);
 	}
 
 	public void drawBytes(byte[] buf, int s, int len, int x, int y) {
-		// clear_area(x, y, x+len*char_width, y+char_height);
-		// graphics.setColor(getForeGround());
+		try {
+			graphics.drawBytes(buf, s, len, x, y - descent);
+			if (bold)
+				graphics.drawBytes(buf, s, len, x + 1, y - descent);
 
-		// System.out.println("drawString: "+x+","+y+" "+len+" "+new String(buf, s,
-		// len));
-
-		graphics.drawBytes(buf, s, len, x, y - descent);
-		if (bold)
-			graphics.drawBytes(buf, s, len, x + 1, y - descent);
-
-		if (underline) {
-			graphics.drawLine(x, y - 1, x + len * char_width, y - 1);
+			if (underline) {
+				graphics.drawLine(x, y - 1, x + len * char_width, y - 1);
+			}
+		} catch (Exception e) {
 		}
-
 	}
 
 	public void drawString(String str, int x, int y) {
-		// clear_area(x, y, x+str.length()*char_width, y+char_height);
-		// graphics.setColor(getForeGround());
 		graphics.drawString(str, x, y - descent);
 		if (bold)
 			graphics.drawString(str, x + 1, y - descent);
@@ -396,18 +417,17 @@ Term {
 
 	}
 
+	public int getWidth(String txt) {
+		FontMetrics fo = graphics.getFontMetrics();
+		return fo.stringWidth(txt);
+	}
+
 	public void beep() {
 		Toolkit.getDefaultToolkit().beep();
 	}
 
 	/** Ignores key released events. */
 	public void keyReleased(KeyEvent event) {
-	}
-
-	// public void keyPressed(KeyEvent event){}
-
-	public void setSplash(Splash foo) {
-		this.splash = foo;
 	}
 
 	public void setLineSpace(int foo) {
@@ -422,7 +442,7 @@ Term {
 		if (graphics == null)
 			return;
 		antialiasing = foo;
-		java.lang.Object mode = foo ? RenderingHints.VALUE_TEXT_ANTIALIAS_ON : RenderingHints.VALUE_TEXT_ANTIALIAS_OFF;
+		Object mode = foo ? RenderingHints.VALUE_TEXT_ANTIALIAS_ON : RenderingHints.VALUE_TEXT_ANTIALIAS_OFF;
 		RenderingHints hints = new RenderingHints(RenderingHints.KEY_TEXT_ANTIALIASING, mode);
 		graphics.setRenderingHints(hints);
 	}
@@ -433,16 +453,16 @@ Term {
 		this.compression = compression;
 	}
 
-	static java.awt.Color toColor(Object o) {
+	static Color toColor(Object o) {
 		if (o instanceof String) {
 			try {
-				return java.awt.Color.decode(((String) o).trim());
-			} catch (java.lang.NumberFormatException e) {
+				return Color.decode(((String) o).trim());
+			} catch (NumberFormatException e) {
 			}
-			return java.awt.Color.getColor(((String) o).trim());
+			return Color.getColor(((String) o).trim());
 		}
-		if (o instanceof java.awt.Color) {
-			return (java.awt.Color) o;
+		if (o instanceof Color) {
+			return (Color) o;
 		}
 		return Color.white;
 	}
@@ -451,8 +471,16 @@ Term {
 		defaultfground = toColor(f);
 	}
 
+	public Color getDefaultForeGround() {
+		return defaultfground;
+	}
+
 	public void setDefaultBackGround(Object f) {
 		defaultbground = toColor(f);
+	}
+
+	public Color getDefaultBackGround() {
+		return defaultfground;
 	}
 
 	public void setForeGround(Object f) {
@@ -468,28 +496,19 @@ Term {
 		foog.dispose();
 	}
 
-	private java.awt.Color getForeGround() {
+	private Color getForeGround() {
 		if (reverse)
 			return bground;
 		return fground;
 	}
 
-	private java.awt.Color getBackGround() {
+	private Color getBackGround() {
 		if (reverse)
 			return fground;
 		return bground;
 	}
 
-	void resetCursorGraphics() {
-		if (cursor_graphics != null)
-			cursor_graphics.dispose();
-
-		cursor_graphics = (Graphics2D) (img.getGraphics());
-		cursor_graphics.setColor(getForeGround());
-		cursor_graphics.setXORMode(getBackGround());
-	}
-
-	public Object getColor(int index) {
+	public Color getColor(int index) {
 		if (colors == null || index < 0 || colors.length <= index)
 			return null;
 		return colors[index];
@@ -499,14 +518,14 @@ Term {
 		bold = true;
 	}
 
-	public void setUnderline() {
-		underline = true;
+	public void setUnderline(boolean useUnderline) {
+		underline = useUnderline;
 	}
 
-	public void setReverse() {
-		reverse = true;
+	public void setReverse(boolean useReverse) {
+		reverse = useReverse;
 		if (graphics != null)
-			graphics.setColor(getForeGround());
+			graphics.setColor(useReverse ? getForeGround() : getBackGround());
 	}
 
 	public void resetAllAttributes() {
@@ -541,4 +560,88 @@ Term {
 	public static synchronized ConfigurationRepository getCR() {
 		return cr;
 	}
+
+	public void setAltScreen(boolean useAltScreen) {
+		//System.out.println("ALT SCREEN "+useAltScreen);
+		// Based on request
+		if(useAltScreen) {
+			// If we don't yet have alternate screen
+			if(altimg == null) {
+				// Create an alternate screen (temporary to flag we'll be using alternate screen)
+				altimg = new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB);
+				// Create new screen with correct size (force execution)
+				setSize(getTermWidth()+1, getTermHeight());
+				// Clear new screen and reset cursor
+				clear();
+				setCursor(0,char_height);
+			}
+		} else {
+			// If we have an alternate screen
+			if(altimg != null) {
+				// Did the size change while on alternate screen ?
+				//System.out.println("aw="+altimg.getWidth()+" ah="+altimg.getHeight()+" iw="+img.getWidth()+" ih="+img.getHeight());
+				// If resized, save time for dealing with it later
+				if(altimg.getWidth()!=img.getWidth() || altimg.getHeight()!=img.getHeight())
+					altResized = System.nanoTime();
+				// Destroy alternate screen
+				altimg = null;
+				// If size changed
+				if(altResized!=0) {
+					//System.out.println("DIFFERENT SIZE!");
+					// The threaded wait is here because 'nano' for some reason likes to switch to main and back to alternate real quick during resize
+					// This may be because we're not implementing some sort of function 'nano' wants to use so we avoid the researching what it is
+					// If we don't have a thread to deal with the resize yet
+					if(altResizeThread==null) {
+						// Create one
+						final Term term = this;
+						altResizeThread = new Thread() {
+							public void run() {
+								// Stay waiting until either 0.5s on main window OR till alternate image is back on
+								while(System.nanoTime()<altResized+500000000L && altimg==null) {
+									try { Thread.sleep(50); } catch(Exception e) {};
+								}
+								//if(altimg!=null) System.out.println("BACK ON ALT!");
+								// If we're still on main screen
+								if(altimg==null) {
+									// This is a RIG to force setPtySize() to work during setSize()
+									// It appears setPtySize() ignores repeat calls with same values despite having an alternate screen being used
+									// If we don't do this then setPtySize() calls during alternate screen use doesn't seem to apply to main screen
+									term_width++;
+									connection.requestResize(term);
+									term_width--;
+									connection.requestResize(term);
+									// We completed the resize on main screen, reset alternate resized flag
+									altResized = 0;
+								}
+								// Allow another thread to start later
+								altResizeThread = null;
+							};
+						};
+						// Start thread
+						altResizeThread.start();
+					}
+				}
+				// Restore main screen (force execution)
+				setSize(getTermWidth()+1, getTermHeight());
+			}
+		}
+	}
+
+	// Returns current image (screen)
+	private BufferedImage getImg() {
+		if(altimg!=null)
+			return altimg;
+		return img;
+	}
+
+	// Return terminal connection
+	public Connection getConnection() {
+		return connection;
+	}
+
+	// Show/Hide Cursor
+	public void setShowCursor(boolean showCursor) {
+		this.showCursor = showCursor;
+	}
+
 }

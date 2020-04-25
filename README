@@ -5,12 +5,13 @@
                          by ymnk@jcraft.com, JCraft,Inc.
 
                           http://www.jcraft.com/jcterm/
+                          https://github.com/guino/jcterm
 
-Last modified: Thu Apr 26 14:01:53 UTC 2012
+Last modified: Sat Apr 25 17:00:00 EDT 2020
 
 Description
 ===========
-JCTerm(JCraft's Term) is a pure Java VT100 terminal emulator for
+JCTerm(JCraft's Term) is a pure Java XTerm terminal emulator for
 SSH2 sessions.  This terminal emulator also allows you to enjoy
 port forwarding, X11 forwarding, etc,.
 JCTerm is licensed under GNU LGPL and easily integrated into you programs.
@@ -29,11 +30,11 @@ Directories & Files in the Source Tree
 
 Features
 ========
-* JCTerm requires jsch(http://www.jcraft.com/jsch/) 0.1.48.
+* JCTerm includes jsch(http://www.jcraft.com/jsch/) 0.1.54.
 * JCTerm requires J2SE 1.4.
-* JCTermMIDP runs on J2ME/CLDC/MIDP2.0
-* JCTermJ2MECDC runs on J2ME/CDC/PP 1.0
-* VT100 emulation
+* JCTermMIDP runs on J2ME/CLDC/MIDP2.0 (Untested for 0.1.0)
+* JCTermJ2MECDC runs on J2ME/CDC/PP 1.0 (Untested for 0.1.0)
+* XTerm emulation enough for vi/nano/less/more w/ alt screen (VT100 compatible)
 * SSH2 protocol support.
 * X11 forwarding.
 * connection through HTTP proxy.
@@ -55,17 +56,16 @@ the source code by your self.  Suppose you have jsch-?.?.?.zip.
   $ cd jcterm-?.?.?/
   $ mkdir lib/
   $ (cd lib; \
-     wget \
-       http://sourceforge.net/projects/jsch/files/jsch.jar/0.1.48/jsch-0.1.48.jar)
+     wget https://github.com/guino/jcterm/raw/master/lib/lib.zip ; \
+     unzip lib.zip)
   $ ant
-  $ java -cp './lib/*.jar:./dist/lib/*.jar' \
-         com.jcraft.jcterm.JCTermSwingFrame
+  $ java -jar dist/lib/jcterm-*.jar
 
 If you need the packet compression support, you have to put the jar file of 
 jzlib(http://www.jcraft.com/jzlib) into lib/ .
 
 
-Using ssh-agent
+Using ssh-agent (Untested for 0.1.0)
 ===============
 JCTerm supports OpenSSH's ssh-agent and Putty's pageant by
 using jsch-agent-proxy.  Here are steps to enable it,
@@ -94,7 +94,7 @@ using jsch-agent-proxy.  Here are steps to enable it,
          com.jcraft.jcterm.JCTermSwingFrame
 
 
-On-Line Demo
+On-Line Demo (Appears to be dead)
 ============
 On-Line demo is available at http://wiredx.net/jcterm/ .
 On this page, the digitally signed JCterm applet is provided and
@@ -110,7 +110,8 @@ JCTermJ2MECDC is the port of JCTerm to J2ME/CDC platform.
   ==============
   To compile this program, you need BouncyCastle Crypto API
   (http://www.bouncycastle.org/) 1.26 or later and JSch for 
-  J2ME/CDC, which is available at http://j2me.jsch.org/ .  
+  J2ME/CDC, which is available at http://j2me.jsch.org/ (Dead).
+  (0.1.0 sources include stub which dispenses the above for compiling)
 
   Confirmed Devices
   =================
@@ -128,7 +129,7 @@ JCTermMIDP is the port of JCTerm to J2ME/CLDC/MIDP2.0 platform.
   ==============
   To compile this midlet, you need BouncyCastle Crypto API
   (http://www.bouncycastle.org/) 1.26 or later and JSch for 
-  J2ME/CLDC/MIDP2.0, which is available at http://j2me.jsch.org/ .  
+  J2ME/CLDC/MIDP2.0, which is available at http://j2me.jsch.org/ (Dead).
   We have confirmed that this midlet is compilable on Sun's Wireless 
   Toolkit 2.2. You have to delete following files before compilation process,
     * src/com/jcraft/jcterm/JCTerm.java
@@ -137,7 +138,8 @@ JCTermMIDP is the port of JCTerm to J2ME/CLDC/MIDP2.0 platform.
     * src/com/jcraft/jcterm/JCTermJ2MECDC.java
     * src/com/jcraft/jcterm/Sftp.java
     * src/com/jcraft/jcterm/Splash.java
-  The jar and jad files are available at http://j2me.jsch.org/ .
+  The jar and jad files are available at http://j2me.jsch.org/ (Dead).
+  (0.1.0 sources include stub which dispenses the above for compiling)
 
   Public-key Authentication
   =========================
@@ -159,7 +161,7 @@ JCTermMIDP is the port of JCTerm to J2ME/CLDC/MIDP2.0 platform.
 
 TODO
 ====
-* VT100 emulation is incomplete.
+* Text based output with scroll-back support.
 
 
 Copyrights & Disclaimers
@@ -169,9 +171,9 @@ GNU Library General Public License.
 Read the COPYING file for the complete license.
 
 
-If you have any comments, suggestions and questions, write us 
-at ymnk@jcraft.com
-
+If you have any comments, suggestions and questions, write the
+original author at ymnk@jcraft.com OR write the contributing
+author at wbbo@hotmail.com
 
 ``SSH is a registered trademark and Secure Shell is a trademark of
 SSH Communications Security Corp (www.ssh.com)''.

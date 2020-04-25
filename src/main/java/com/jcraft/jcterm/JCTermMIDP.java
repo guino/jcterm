@@ -22,8 +22,10 @@
 
 package com.jcraft.jcterm;
 
+import com.jcraft.jcterm.Connection;
 import com.jcraft.jsch.*;
 
+import java.awt.Color;
 import java.io.*;
 import java.net.Socket;
 import java.net.UnknownHostException;
@@ -159,7 +161,7 @@ public class JCTermMIDP extends MIDlet implements Runnable, CommandListener {
 				((ChannelShell) channel).setPtySize(canvas.getColumnCount(), canvas.getRowCount() - 1,
 						canvas.getWidth(), canvas.getHeight());
 
-				emulator = new EmulatorVT100(canvas, in);
+				emulator = new EmulatorXTerm(canvas);
 				emulator.reset();
 				canvas.setOutputStream(out);
 				emulator.start();
@@ -784,8 +786,75 @@ public class JCTermMIDP extends MIDlet implements Runnable, CommandListener {
 				graphics.setColor(getForeGround());
 		}
 
-		public Object getColor(int index) {
+		public Color getColor(int index) {
 			return null;
+		}
+
+		@Override
+		public Connection getConnection() {
+			return new Connection() {
+				public InputStream getInputStream() {
+					return in;
+				}
+
+				public OutputStream getOutputStream() {
+					return out;
+				}
+
+				public void requestResize(Term term) {
+					if (channel instanceof ChannelShell) {
+						int c = term.getColumnCount();
+						int r = term.getRowCount();
+						((ChannelShell) channel).setPtySize(c, r, c * term.getCharWidth(), r * term.getCharHeight());
+					}
+				}
+
+				public void close() {
+					channel.disconnect();
+				}
+			};
+		}
+
+		@Override
+		public int getWidth(String str) {
+			// TODO Auto-generated method stub
+			return 0;
+		}
+
+		@Override
+		public Color getDefaultForeGround() {
+			// TODO Auto-generated method stub
+			return null;
+		}
+
+		@Override
+		public Color getDefaultBackGround() {
+			// TODO Auto-generated method stub
+			return null;
+		}
+
+		@Override
+		public void setUnderline(boolean useUnderline) {
+			// TODO Auto-generated method stub
+
+		}
+
+		@Override
+		public void setReverse(boolean useReverse) {
+			// TODO Auto-generated method stub
+
+		}
+
+		@Override
+		public void setShowCursor(boolean showCursor) {
+			// TODO Auto-generated method stub
+
+		}
+
+		@Override
+		public void setAltScreen(boolean useAltScreen) {
+			// TODO Auto-generated method stub
+
 		}
 	}
 }

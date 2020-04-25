@@ -3,6 +3,7 @@
  * Copyright (C) 2002,2007 ymnk, JCraft,Inc.
  *
  * Written by: ymnk<ymnk@jcaft.com>
+ * Modified by: Guino <wbbo@hotmail.com>
  *
  *
  * This program is free software; you can redistribute it and/or
@@ -28,16 +29,18 @@ import java.awt.event.*;
 import javax.swing.*;
 import javax.swing.event.*;
 import java.io.*;
-import java.util.Vector;
 
 public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, Runnable {
-	static String COPYRIGHT = "JCTerm 0.0.11\nCopyright (C) 2002,2012 ymnk<ymnk@jcraft.com>, JCraft,Inc.\n"
-			+ "Official Homepage: http://www.jcraft.com/jcterm/\n" + "This software is licensed under GNU LGPL.";
+	private static final long serialVersionUID = -9176279675835059059L;
 
-	private static int counter = 1;
+	static String COPYRIGHT = "JCTerm 0.1.0\nCopyright (C) 2002,2012 ymnk<ymnk@jcraft.com>, JCraft,Inc.\n"
+			+ "Official Homepage: http://www.jcraft.com/jcterm/\n" + "This software is licensed under GNU LGPL.\n"
+			+ "Modified (2020) by guino <wbbo@hotmail.com>\nhttps://github.com/guino/jcterm";
+
+	private static int counter = 0;
 
 	static void resetCounter() {
-		counter = 1;
+		counter = 0;
 	}
 
 	private int mode = SHELL;
@@ -59,6 +62,7 @@ public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, R
 
 	private int compression = 0;
 
+	@SuppressWarnings("unused")
 	private Splash splash = null;
 
 	private JCTermSwing term = null;
@@ -72,6 +76,9 @@ public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, R
 	private Frame frame = this;
 
 	private String configName = "default";
+
+	private long resizeTime = 0;
+	private Thread resizeThread = null;
 
 	public boolean getCloseOnExit() {
 		return close_on_exit;
@@ -96,7 +103,7 @@ public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, R
 		enableEvents(AWTEvent.KEY_EVENT_MASK);
 		addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent e) {
-				System.exit(0);
+				try { connection.close(); } catch(Exception ex) {}
 			}
 		});
 
@@ -105,20 +112,43 @@ public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, R
 
 		term = new JCTermSwing();
 		getContentPane().add("Center", term);
+		getContentPane().setBackground(Color.black);
+		setBackground(Color.black);
 		pack();
 		term.setVisible(true);
 
 		ComponentAdapter l = new ComponentAdapter() {
 			public void componentResized(ComponentEvent e) {
-				Component c = e.getComponent();
-				Container cp = ((JFrame) c).getContentPane();
-				int cw = c.getWidth();
-				int ch = c.getHeight();
-				int cwm = c.getWidth() - cp.getWidth();
-				int chm = c.getHeight() - cp.getHeight();
-				cw -= cwm;
-				ch -= chm;
-				JCTermSwingFrame.this.term.setSize(cw, ch);
+				// Track last time resize happened
+				resizeTime = System.nanoTime();
+				// If we don't have a Thread to handle resizing
+				if(resizeThread==null) {
+					// Create a new one
+					resizeThread = new Thread() {
+						public void run() {
+							// Wait until there's no resizing for 0.5s
+							while(System.nanoTime()<resizeTime+500000000L) {
+								try { Thread.sleep(50); } catch(Exception e) {}
+							}
+							// Now we'll do the resizing
+							Component c = e.getComponent();
+							Container cp = ((JFrame) c).getContentPane();
+							int cw = c.getWidth();
+							int ch = c.getHeight();
+							int cwm = c.getWidth() - cp.getWidth();
+							int chm = c.getHeight() - cp.getHeight();
+							cw -= cwm;
+							ch -= chm;
+							JCTermSwingFrame.this.term.setSize(cw, ch);
+							int ws = ((JFrame) c).getExtendedState();
+							if(ws!=JFrame.MAXIMIZED_BOTH && ws!=JFrame.MAXIMIZED_HORIZ && ws!=JFrame.MAXIMIZED_VERT)
+								pack();
+							// Allow a new resize thread to start
+							resizeThread = null;
+						}
+					};
+					resizeThread.start();
+				}
 			}
 		};
 		addComponentListener(l);
@@ -136,6 +166,8 @@ public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, R
 	}
 
 	public void run() {
+		Thread.currentThread().setName("Frame Thread");
+		counter++;
 		String destination = null;
 		while (thread != null) {
 			try {
@@ -175,7 +207,7 @@ public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, R
 					conf.addDestination(destination);
 					JCTermSwing.getCR().save(conf);
 				} catch (Exception e) {
-					// System.out.println(e);
+					e.printStackTrace();
 					break;
 				}
 
@@ -194,6 +226,7 @@ public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, R
 					out = channel.getOutputStream();
 					in = channel.getInputStream();
 
+					((ChannelShell)channel).setPtyType("xterm");
 					channel.connect();
 				} else if (mode == SFTP) {
 
@@ -225,8 +258,7 @@ public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, R
 						if (fchannel instanceof ChannelShell) {
 							int c = term.getColumnCount();
 							int r = term.getRowCount();
-							((ChannelShell) fchannel).setPtySize(c, r, c * term.getCharWidth(),
-									r * term.getCharHeight());
+							((ChannelShell) fchannel).setPtySize(c, r, c * term.getCharWidth(), r * term.getCharHeight());
 						}
 					}
 
@@ -234,8 +266,9 @@ public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, R
 						fchannel.disconnect();
 					}
 				};
-				frame.setTitle("[" + (counter++) + "] " + user + "@" + host
-						+ (port != 22 ? (":" + new Integer(port).toString()) : ""));
+				frame.setTitle("[" + (counter) + "] " + user + "@" + host
+						+ (port != 22 ? (":" + port) : ""));
+				connection.requestResize(term);
 				term.requestFocus();
 				term.start(connection);
 			} catch (Exception e) {
@@ -243,18 +276,27 @@ public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, R
 			}
 			break;
 		}
+		counter--;
 		frame.setTitle("JCTerm");
 		thread = null;
 
 		dispose_connection();
 
-		if (getCloseOnExit()) {
-			frame.setVisible(false);
-			frame.dispose();
-		} else {
-			term.clear();
-			term.redraw(0, 0, term.getWidth(), term.getHeight());
-		}
+		if(counter==0 && jschsession!=null)
+			jschsession.dispose();
+
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				if (getCloseOnExit()) {
+					frame.setVisible(false);
+					frame.dispose();
+				} else {
+					term.clear();
+					term.redraw(0, 0, term.getWidth(), term.getHeight());
+				}
+			}
+		});
 	}
 
 	void dispose_connection() {
@@ -287,11 +329,11 @@ public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, R
 		}
 
 		public boolean promptPassword(String message) {
-			Object[] ob = { pword };
 			JPanel panel = new JPanel();
 			panel.add(pword);
 			pword.requestFocusInWindow();
 			JOptionPane pane = new JOptionPane(panel, JOptionPane.QUESTION_MESSAGE, JOptionPane.OK_CANCEL_OPTION) {
+				private static final long serialVersionUID = -4894253190005025186L;
 				public void selectInitialValue() {
 				}
 			};
@@ -357,6 +399,7 @@ public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, R
 				texts[i].requestFocusInWindow();
 			}
 			JOptionPane pane = new JOptionPane(panel, JOptionPane.QUESTION_MESSAGE, JOptionPane.OK_CANCEL_OPTION) {
+				private static final long serialVersionUID = -8060105302678336794L;
 				public void selectInitialValue() {
 				}
 			};
@@ -436,7 +479,7 @@ public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, R
 			} else {
 				jschsession.getSession().setConfig("compression.s2c", "zlib@openssh.com,zlib,none");
 				jschsession.getSession().setConfig("compression.c2s", "zlib@openssh.com,zlib,none");
-				jschsession.getSession().setConfig("compression_level", new Integer(compression).toString());
+				jschsession.getSession().setConfig("compression_level", ""+compression );
 			}
 			try {
 				jschsession.getSession().rekey();
@@ -457,7 +500,7 @@ public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, R
 		int mwidth = frame.getWidth() - term.getTermWidth();
 		int mheight = frame.getHeight() - term.getTermHeight();
 		term.setFont("Monospaced-" + size);
-		frame.setSize(mwidth + term.getTermWidth(), mheight + term.getTermHeight());
+		frame.setSize(mwidth + term.getTermWidth()+1, mheight + term.getTermHeight());
 		term.clear();
 		term.redraw(0, 0, term.getWidth(), term.getHeight());
 	}
@@ -589,7 +632,7 @@ public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, R
 		} else if (action.equals("Compression...")) {
 			String foo = JOptionPane.showInputDialog(this,
 					"Compression level(0-9)\n0 means no compression.\n1 means fast.\n9 means slow, but best.",
-					new Integer(compression).toString());
+					""+compression);
 			try {
 				if (foo != null) {
 					compression = Integer.parseInt(foo);
@@ -817,22 +860,21 @@ public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, R
 		term.setDefaultForeGround(fg);
 		term.setBackGround(bg);
 		term.setDefaultBackGround(bg);
-		term.resetCursorGraphics();
 		term.clear();
 		term.redraw(0, 0, term.getWidth(), term.getHeight());
 	}
 
 	private String promptDestination(JComponent term, String[] destinations) {
-		JComboBox jb = new JComboBox();
+		JComboBox<String> jb = new JComboBox<String>();
 		jb.setEditable(true);
 
 		for (int i = 0; i < destinations.length; i++) {
 			jb.addItem(destinations[i]);
 		}
 
-		JPanel panel = new JPanel();
 		jb.requestFocusInWindow();
 		JOptionPane pane = new JOptionPane(jb, JOptionPane.QUESTION_MESSAGE, JOptionPane.OK_CANCEL_OPTION) {
+			private static final long serialVersionUID = -2287122145269937020L;
 			public void selectInitialValue() {
 			}
 		};
@@ -871,7 +913,7 @@ public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, R
 			JSchSession.useSSHAgent(true);
 
 		final JCTermSwingFrame frame = new JCTermSwingFrame("JCTerm");
-		frame.setCloseOnExit(false);
+		frame.setCloseOnExit(true);
 		frame.setVisible(true);
 		frame.setResizable(true);
 	}

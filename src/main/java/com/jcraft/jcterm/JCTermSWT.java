@@ -380,7 +380,7 @@ public class JCTermSWT extends Canvas implements PaintListener, ControlListener,
 		this.connection = connection;
 		in = connection.getInputStream();
 		out = connection.getOutputStream();
-		emulator = new EmulatorVT100(this, in);
+		emulator = new EmulatorXTerm(this);
 		emulator.reset();
 		emulator.start();
 
@@ -570,10 +570,11 @@ public class JCTermSWT extends Canvas implements PaintListener, ControlListener,
 		return bground;
 	}
 
-	public Object getColor(int index) {
+	public java.awt.Color getColor(int index) {
 		if (colors == null || index < 0 || colors.length <= index)
 			return null;
-		return colors[index];
+		Color c = (Color) colors[index];
+		return new java.awt.Color(c.getRed(), c.getGreen(), c.getBlue());
 	}
 
 	public void setBold() {
@@ -606,5 +607,52 @@ public class JCTermSWT extends Canvas implements PaintListener, ControlListener,
 				graphics.setBackground(getBackGround());
 			}
 		}
+	}
+
+	@Override
+	public Connection getConnection() {
+		return connection;
+	}
+
+	@Override
+	public int getWidth(String str) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public java.awt.Color getDefaultForeGround() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public java.awt.Color getDefaultBackGround() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void setUnderline(boolean useUnderline) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void setReverse(boolean useReverse) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void setShowCursor(boolean showCursor) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void setAltScreen(boolean useAltScreen) {
+		// TODO Auto-generated method stub
+
 	}
 }

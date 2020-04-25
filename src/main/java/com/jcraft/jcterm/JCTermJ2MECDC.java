@@ -93,6 +93,7 @@ public class JCTermJ2MECDC extends Panel implements KeyListener, ActionListener,
 	private int proxy_socks5_port = 0;
 
 	private Session session = null;
+	Channel channel = null;
 	private Proxy proxy = null;
 
 	private boolean antialiasing = true;
@@ -211,7 +212,7 @@ public class JCTermJ2MECDC extends Panel implements KeyListener, ActionListener,
 					break;
 				}
 
-				Channel channel = null;
+				channel = null;
 
 				if (mode == SHELL) {
 					channel = session.openChannel("shell");
@@ -256,7 +257,7 @@ public class JCTermJ2MECDC extends Panel implements KeyListener, ActionListener,
 
 				requestFocus();
 
-				emulator = new EmulatorVT100(this, in);
+				emulator = new EmulatorXTerm(this);
 				emulator.reset();
 				emulator.start();
 			} catch (Exception e) {
@@ -1208,7 +1209,74 @@ public class JCTermJ2MECDC extends Panel implements KeyListener, ActionListener,
 			graphics.setColor(getForeGround());
 	}
 
-	public Object getColor(int index) {
+	public Color getColor(int index) {
 		return null;
+	}
+
+	@Override
+	public Connection getConnection() {
+		return new Connection() {
+			public InputStream getInputStream() {
+				return in;
+			}
+
+			public OutputStream getOutputStream() {
+				return out;
+			}
+
+			public void requestResize(Term term) {
+				if (channel instanceof ChannelShell) {
+					int c = term.getColumnCount();
+					int r = term.getRowCount();
+					((ChannelShell) channel).setPtySize(c, r, c * term.getCharWidth(), r * term.getCharHeight());
+				}
+			}
+
+			public void close() {
+				channel.disconnect();
+			}
+		};
+	}
+
+	@Override
+	public int getWidth(String str) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public Color getDefaultForeGround() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Color getDefaultBackGround() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void setUnderline(boolean useUnderline) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void setReverse(boolean useReverse) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void setShowCursor(boolean showCursor) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void setAltScreen(boolean useAltScreen) {
+		// TODO Auto-generated method stub
+
 	}
 }
