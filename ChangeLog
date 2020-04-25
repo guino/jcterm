@@ -1,8 +1,15 @@
 ChangeLog of JCTerm
 ====================================================================
-Last modified: Wed Apr 11 09:55:50 UTC 2012
+Last modified: Sat Apr 25 17:00:00 EDT 2020
 
-	
+Changes since version 0.0.11:
+- Packaged jsch-0.1.54 in jar file
+- Added manifest information to run with 'java -jar'
+- Added basic XTerm emulation (enough for vi/nano/less/more with alt screen support)
+- Added UTF8 parsing
+- Improved terminal window size handling
+- Fixed issue when trying to exit application
+
 Changes since version 0.0.9:
 - changing foreground and background colors dynamically.
 - changing the font size dynamically.

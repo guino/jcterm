@@ -1,20 +1,19 @@
-/* -*-mode:java; c-basic-offset:2; -*- */
 /* JCTerm
  * Copyright (C) 2002,2007 ymnk, JCraft,Inc.
- *  
- * Written by: ymnk<ymnk@jcaft.com>
- *   
- *   
+ *
+ * Written by: ymnk <ymnk@jcaft.com>
+ * Modified by: Guino <wbbo@hotmail.com> (2020)
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public License
  * as published by the Free Software Foundation; either version 2 of
  * the License, or (at your option) any later version.
-   
+
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Library General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Library General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
@@ -22,56 +21,69 @@
 
 package com.jcraft.jcterm;
 
-public interface Term{
+import java.awt.Color;
 
-  void start(Connection connection);
+public interface Term {
 
-  int getRowCount();
+	void start(Connection connection);
 
-  int getColumnCount();
+	Connection getConnection();
 
-  int getCharWidth();
+	int getRowCount();
 
-  int getCharHeight();
+	int getColumnCount();
 
-  void setCursor(int x, int y);
+	int getCharWidth();
 
-  void clear();
+	int getCharHeight();
 
-  void draw_cursor();
+	void setCursor(int x, int y);
 
-  void redraw(int x, int y, int width, int height);
+	void clear();
 
-  //void redraw();
-  void clear_area(int x1, int y1, int x2, int y2);
+	void draw_cursor();
 
-  void scroll_area(int x, int y, int w, int h, int dx, int dy);
+	void redraw(int x, int y, int width, int height);
 
-  void drawBytes(byte[] buf, int s, int len, int x, int y);
+	void clear_area(int x1, int y1, int x2, int y2);
 
-  void drawString(String str, int x, int y);
+	void scroll_area(int x, int y, int w, int h, int dx, int dy);
 
-  void beep();
+	void drawBytes(byte[] buf, int s, int len, int x, int y);
 
-  void setDefaultForeGround(Object foreground);
+	void drawString(String str, int x, int y);
 
-  void setDefaultBackGround(Object background);
+	int getWidth(String str);
 
-  void setForeGround(Object foreground);
+	void beep();
 
-  void setBackGround(Object background);
+	void setDefaultForeGround(Object foreground);
 
-  void setBold();
+	void setDefaultBackGround(Object background);
 
-  void setUnderline();
+	Color getDefaultForeGround();
 
-  void setReverse();
+	Color getDefaultBackGround();
 
-  void resetAllAttributes();
+	void setForeGround(Object foreground);
 
-  int getTermWidth();
+	void setBackGround(Object background);
 
-  int getTermHeight();
+	void setBold();
 
-  Object getColor(int index);
+	void setUnderline(boolean useUnderline);
+
+	void setReverse(boolean useReverse);
+
+	void setShowCursor(boolean showCursor);
+
+	void resetAllAttributes();
+
+	int getTermWidth();
+
+	int getTermHeight();
+
+	Color getColor(int index);
+
+	void setAltScreen(boolean useAltScreen);
 }
