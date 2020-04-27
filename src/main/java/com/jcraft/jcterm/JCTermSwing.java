@@ -419,7 +419,7 @@ public class JCTermSwing extends JPanel implements KeyListener, Term {
 
 	public int getWidth(String txt) {
 		FontMetrics fo = graphics.getFontMetrics();
-		return fo.stringWidth(txt);
+		return fo.stringWidth(txt)-1; // Give it 1 pixel tolerance
 	}
 
 	public void beep() {

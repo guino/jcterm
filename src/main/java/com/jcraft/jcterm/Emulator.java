@@ -435,19 +435,19 @@ public abstract class Emulator {
 		byte b = getChar();
 		term.draw_cursor();
 
-		// Check for multiple byte characters
-		if ((b&0xff)==0xc2) { // UTF8 2 byte ?
+		// Check for multiple byte characters (UTF-8)
+		if ((b&0xff)>=0xc2 && (b&0xff)<0xe0) { // UTF8 2 byte ?
 			b4[0] = b;
 			b4[1] = getChar();
 			str = new String(b4, 0, 2, "UTF-8");
 			debug("UTF8 2 "+str);
-		} else if((b&0xff)==0xe0 || (b&0xff)==0xe2 || (b&0xff)==0xed) { // UTF8 3 byte ?
+		} else if((b&0xff)>=0xe0 && (b&0xff)<0xf0) { // UTF8 3 byte ?
 			b4[0] = b;
 			b4[1] = getChar();
 			b4[2] = getChar();
 			str = new String(b4, 0, 3, "UTF-8");
 			debug("UTF8 3 "+str);
-		} else if((b&0xff)==0xf0) { // UTF8 4 byte ?
+		} else if((b&0xff)>=0xf0) { // UTF8 4 byte ?
 			b4[0] = b;
 			b4[1] = getChar();
 			b4[2] = getChar();
