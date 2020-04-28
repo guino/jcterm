@@ -442,7 +442,7 @@ public class JCTermSwing extends JPanel implements KeyListener, Term {
 		if (graphics == null)
 			return;
 		antialiasing = foo;
-		Object mode = foo ? RenderingHints.VALUE_TEXT_ANTIALIAS_ON : RenderingHints.VALUE_TEXT_ANTIALIAS_OFF;
+		Object mode = foo ? RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB : RenderingHints.VALUE_TEXT_ANTIALIAS_OFF;
 		RenderingHints hints = new RenderingHints(RenderingHints.KEY_TEXT_ANTIALIASING, mode);
 		graphics.setRenderingHints(hints);
 	}
