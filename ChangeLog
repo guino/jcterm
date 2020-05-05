@@ -1,6 +1,11 @@
 ChangeLog of JCTerm
 ====================================================================
-Last modified: Sat Apr 25 17:00:00 EDT 2020
+Last modified: Sat May 05 07:00:00 EDT 2020
+
+Changes since version 0.1.0:
+- Tweak to change on font size
+- Improved Anti-aliasing option
+- Fixes UTF8 parsing/display
 
 Changes since version 0.0.11:
 - Packaged jsch-0.1.54 in jar file
