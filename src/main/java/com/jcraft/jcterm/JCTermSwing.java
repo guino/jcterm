@@ -419,7 +419,7 @@ public class JCTermSwing extends JPanel implements KeyListener, Term {
 
 	public int getWidth(String txt) {
 		FontMetrics fo = graphics.getFontMetrics();
-		return fo.stringWidth(txt);
+		return fo.stringWidth(txt)-1; // Give it 1 pixel tolerance
 	}
 
 	public void beep() {
@@ -442,7 +442,7 @@ public class JCTermSwing extends JPanel implements KeyListener, Term {
 		if (graphics == null)
 			return;
 		antialiasing = foo;
-		Object mode = foo ? RenderingHints.VALUE_TEXT_ANTIALIAS_ON : RenderingHints.VALUE_TEXT_ANTIALIAS_OFF;
+		Object mode = foo ? RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB : RenderingHints.VALUE_TEXT_ANTIALIAS_OFF;
 		RenderingHints hints = new RenderingHints(RenderingHints.KEY_TEXT_ANTIALIASING, mode);
 		graphics.setRenderingHints(hints);
 	}
