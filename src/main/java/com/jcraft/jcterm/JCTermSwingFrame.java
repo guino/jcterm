@@ -497,12 +497,11 @@ public class JCTermSwingFrame extends JFrame implements Frame, ActionListener, R
 	}
 
 	private void _setFontSize(int size) {
-		int mwidth = frame.getWidth() - term.getTermWidth();
-		int mheight = frame.getHeight() - term.getTermHeight();
+		term.setSize(term.getTermWidth()+term.getCharWidth(), term.getTermHeight());
 		term.setFont("Monospaced-" + size);
-		frame.setSize(mwidth + term.getTermWidth()+1, mheight + term.getTermHeight());
-		term.clear();
-		term.redraw(0, 0, term.getWidth(), term.getHeight());
+		term.setSize(term.getTermWidth()+1, term.getTermHeight());
+		pack();
+		term.redraw(0, 0, term.getTermWidth(), term.getTermHeight());
 	}
 
 	public int getCompression() {
